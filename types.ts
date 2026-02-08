@@ -24,6 +24,9 @@ export interface Business {
   address: string;
   website: string;
   thumbnailUrl?: string;
+  parkingSpots: string;
+  wheelchairAccessible: string;
+  automaticDoors: string;
 }
 
 export interface RecipeResult {

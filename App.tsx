@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Clock, Utensils, BookOpen, ArrowRight, Globe, ScrollText, ExternalLink, Plus, Leaf, Soup, Wheat, Wine, History, ChevronRight, Check, Flame, Hammer, MapPin, Store, Edit3, Navigation } from 'lucide-react';
+import { Search, Clock, Utensils, BookOpen, ArrowRight, Globe, ScrollText, ExternalLink, Plus, Leaf, Soup, Wheat, Wine, History, ChevronRight, Check, Flame, Hammer, MapPin, Store, Edit3, Navigation, Accessibility, ParkingCircle, CheckCircle2, DoorOpen } from 'lucide-react';
 import { COMMON_INGREDIENTS, COOKING_APPLIANCES, PROCESSING_TOOLS, COMMON_CULTURES } from './constants';
 import { RecipeResult, SearchState, Recipe, Business } from './types';
 import { getCulturalRecipesWithSearch, getCulturalBusinessesWithSearch } from './services/geminiService';
@@ -93,11 +93,36 @@ const BusinessCard: React.FC<{ business: Business; index: number }> = ({ busines
            <p className="text-gray-700 text-xs leading-relaxed line-clamp-4">{business.significance}</p>
         </div>
 
-        <div className="space-y-3">
-          <h4 className="text-[#064e3b] font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
-            <MapPin className="w-3.5 h-3.5" /> Location
-          </h4>
-          <p className="text-gray-600 text-xs font-medium">{business.address}</p>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <h4 className="text-[#064e3b] font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
+              <MapPin className="w-3.5 h-3.5" /> Location
+            </h4>
+            <p className="text-gray-600 text-xs font-medium pl-1">{business.address}</p>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="text-[#064e3b] font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
+              <Accessibility className="w-3.5 h-3.5" /> Accessibility
+            </h4>
+            <div className="grid grid-cols-1 gap-2 pl-1">
+              <div className="flex items-center gap-2 text-[11px] text-gray-600">
+                <ParkingCircle className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                <span className="font-medium">Disability Parking:</span>
+                <span>{business.parkingSpots}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-gray-600">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                <span className="font-medium">Wheelchair Accessible:</span>
+                <span>{business.wheelchairAccessible}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-gray-600">
+                <DoorOpen className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                <span className="font-medium">Automatic Doors:</span>
+                <span>{business.automaticDoors}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center justify-end pt-6 border-t border-emerald-50 mt-auto">

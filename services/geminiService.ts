@@ -118,10 +118,13 @@ export const getCulturalBusinessesWithSearch = async (
   SIGNIFICANCE: [Provide a section on their cultural significance or history in the community. Use COMPLETE sentences.]
   ADDRESS: [The full street address in ${targetZip} or surrounding area]
   WEBSITE: [The official website or Yelp/Instagram link]
+  ACCESSIBILITY_PARKING: [How many disability parking spots are available? Provide a number or 'Limited'/'Unknown']
+  ACCESSIBILITY_WHEELCHAIR: [Is it ramps/wheelchair accessible? 'Yes', 'No', or 'Partial']
+  ACCESSIBILITY_DOORS: [Are there automatic doors? 'Yes' or 'No']
   THUMBNAIL_URL: [Find a direct image link of their food or storefront. If you cannot find a direct link, leave this blank.]
   [BUSINESS_END]
   
-  Be authentic. Use high-quality web grounding to find real, currently operating businesses.`;
+  Be authentic and look specifically for their accessibility features to help all members of the community. Use high-quality web grounding.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -142,17 +145,25 @@ export const getCulturalBusinessesWithSearch = async (
       const content = block.split('[BUSINESS_END]')[0];
       const lines = content.trim().split('\n');
       
-      const biz: Partial<Business> = {};
+      const biz: Partial<Business> = {
+        parkingSpots: 'Unknown',
+        wheelchairAccessible: 'Unknown',
+        automaticDoors: 'Unknown'
+      };
       
       lines.forEach(line => {
-        if (line.startsWith('NAME:')) biz.name = line.replace('NAME:', '').trim();
-        if (line.startsWith('HERITAGE:')) biz.heritage = line.replace('HERITAGE:', '').trim();
-        if (line.startsWith('SUMMARY:')) biz.summary = line.replace('SUMMARY:', '').trim();
-        if (line.startsWith('SIGNIFICANCE:')) biz.significance = line.replace('SIGNIFICANCE:', '').trim();
-        if (line.startsWith('ADDRESS:')) biz.address = line.replace('ADDRESS:', '').trim();
-        if (line.startsWith('WEBSITE:')) biz.website = line.replace('WEBSITE:', '').trim();
-        if (line.startsWith('THUMBNAIL_URL:')) {
-          const val = line.replace('THUMBNAIL_URL:', '').trim();
+        const trimmedLine = line.trim();
+        if (trimmedLine.startsWith('NAME:')) biz.name = trimmedLine.replace('NAME:', '').trim();
+        if (trimmedLine.startsWith('HERITAGE:')) biz.heritage = trimmedLine.replace('HERITAGE:', '').trim();
+        if (trimmedLine.startsWith('SUMMARY:')) biz.summary = trimmedLine.replace('SUMMARY:', '').trim();
+        if (trimmedLine.startsWith('SIGNIFICANCE:')) biz.significance = trimmedLine.replace('SIGNIFICANCE:', '').trim();
+        if (trimmedLine.startsWith('ADDRESS:')) biz.address = trimmedLine.replace('ADDRESS:', '').trim();
+        if (trimmedLine.startsWith('WEBSITE:')) biz.website = trimmedLine.replace('WEBSITE:', '').trim();
+        if (trimmedLine.startsWith('ACCESSIBILITY_PARKING:')) biz.parkingSpots = trimmedLine.replace('ACCESSIBILITY_PARKING:', '').trim();
+        if (trimmedLine.startsWith('ACCESSIBILITY_WHEELCHAIR:')) biz.wheelchairAccessible = trimmedLine.replace('ACCESSIBILITY_WHEELCHAIR:', '').trim();
+        if (trimmedLine.startsWith('ACCESSIBILITY_DOORS:')) biz.automaticDoors = trimmedLine.replace('ACCESSIBILITY_DOORS:', '').trim();
+        if (trimmedLine.startsWith('THUMBNAIL_URL:')) {
+          const val = trimmedLine.replace('THUMBNAIL_URL:', '').trim();
           if (val && (val.startsWith('http') || val.startsWith('https'))) {
             biz.thumbnailUrl = val.replace(/[()]/g, '');
           }
