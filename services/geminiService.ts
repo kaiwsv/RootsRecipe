@@ -1,97 +1,95 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
-import { Recipe, Restaurant, SearchState } from "../types";
+import { GoogleGenAI } from "@google/genai";
+import { Recipe, RecipeResult, SearchState } from "../types";
 
-export const getCulturalRecipes = async (state: SearchState): Promise<Recipe[]> => {
+export const getCulturalRecipesWithSearch = async (
+  state: SearchState, 
+  existingRecipes: string[] = []
+): Promise<RecipeResult> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
   
-  const prompt = `Act as a culinary historian and master chef. Given these ingredients: ${state.ingredients.join(", ")}, 
-  available appliances: ${state.appliances.join(", ")}, and a max prep time of ${state.maxTime} minutes, 
-  recommend 3 culturally significant recipes (especially from marginalized or immigrant communities, or UNESCO Intangible Cultural Heritage foods).
-  For each recipe, provide:
-  1. A title.
-  2. Its country/culture of origin.
-  3. The deep cultural story or tradition behind the dish.
-  4. A short AI summary of how to make it.
-  5. The preparation time (within the limit).
-  6. A list of key ingredients needed from the user's list.
-  7. A realistic external link to a recipe blog or documentation (e.g., NYT Cooking, UNESCO, or cultural blogs).`;
+  const cultureQuery = state.cultures.length > 0 ? `specifically from ${state.cultures.join(" or ")} heritage` : "from diverse global heritage";
+  const excludeQuery = existingRecipes.length > 0 ? `DO NOT include any of the following recipes: ${existingRecipes.join(", ")}.` : "";
+  const count = existingRecipes.length > 0 ? 6 : 3;
+
+  const prompt = `Search the web for real, authentic, and currently live recipes ${cultureQuery} that can be made using these core ingredients: ${state.ingredients.join(", ")}. 
+  The user has access to these appliances: ${state.appliances.join(", ")}. 
+  Crucially, ensure the recipes can be prepared in under ${state.maxTime} minutes.
+  ${excludeQuery}
+  
+  Please return exactly ${count} recipes. For EACH recipe, use this EXACT delimiter-based format:
+  
+  [RECIPE_START]
+  NAME: [Name of the dish]
+  HERITAGE: [Specific community/culture]
+  SUMMARY: [Provide 2-3 COMPLETE sentences describing the dish. Do not truncate.]
+  HISTORY: [A detailed section on cultural significance and history. Use COMPLETE sentences. Do not truncate.]
+  INGREDIENTS_USED: [List ALL ingredients required with exact measurements/quantities, separated by semicolons]
+  APPLIANCES_USED: [List all kitchen tools and appliances used, separated by semicolons]
+  TIME_ESTIMATE: [Minutes only, as a number]
+  SOURCE_URL: [The exact URL of the recipe found]
+  THUMBNAIL_URL: [Find the actual featured image URL from the article. If you cannot find a direct image link from the article, leave this blank.]
+  [RECIPE_END]
+  
+  Be authentic. Use high-quality web grounding to find real recipes and verify the links are functional.`;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              origin: { type: Type.STRING },
-              culturalStory: { type: Type.STRING },
-              summary: { type: Type.STRING },
-              prepTime: { type: Type.NUMBER },
-              ingredientsNeeded: { type: Type.ARRAY, items: { type: Type.STRING } },
-              link: { type: Type.STRING }
-            },
-            required: ["title", "origin", "culturalStory", "summary", "prepTime", "ingredientsNeeded", "link"]
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    const text = response.text || "";
+    const recipes: Recipe[] = [];
+    
+    const recipeBlocks = text.split('[RECIPE_START]');
+    recipeBlocks.shift();
+
+    recipeBlocks.forEach(block => {
+      const content = block.split('[RECIPE_END]')[0];
+      const lines = content.trim().split('\n');
+      
+      const recipe: Partial<Recipe> = {};
+      
+      lines.forEach(line => {
+        if (line.startsWith('NAME:')) recipe.name = line.replace('NAME:', '').trim();
+        if (line.startsWith('HERITAGE:')) recipe.heritage = line.replace('HERITAGE:', '').trim();
+        if (line.startsWith('SUMMARY:')) recipe.summary = line.replace('SUMMARY:', '').trim();
+        if (line.startsWith('HISTORY:')) recipe.history = line.replace('HISTORY:', '').trim();
+        if (line.startsWith('INGREDIENTS_USED:')) recipe.ingredients = line.replace('INGREDIENTS_USED:', '').split(';').map(i => i.trim()).filter(i => i);
+        if (line.startsWith('APPLIANCES_USED:')) recipe.appliances = line.replace('APPLIANCES_USED:', '').split(';').map(i => i.trim()).filter(i => i);
+        if (line.startsWith('TIME_ESTIMATE:')) recipe.time = line.replace('TIME_ESTIMATE:', '').trim();
+        if (line.startsWith('SOURCE_URL:')) recipe.sourceUrl = line.replace('SOURCE_URL:', '').trim();
+        if (line.startsWith('THUMBNAIL_URL:')) {
+          const val = line.replace('THUMBNAIL_URL:', '').trim();
+          if (val && val.startsWith('http')) {
+            recipe.thumbnailUrl = val;
           }
         }
+      });
+
+      if (recipe.name) {
+        recipes.push(recipe as Recipe);
       }
     });
 
-    const data = JSON.parse(response.text || "[]");
-    return data.map((r: any, idx: number) => ({
-      ...r,
-      id: `recipe-${idx}`,
-      imagePlaceholder: `https://picsum.photos/seed/${idx + 50}/600/400`
-    }));
+    const sources: { title: string; uri: string }[] = [];
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    chunks.forEach((chunk: any) => {
+      if (chunk.web && chunk.web.uri) {
+        sources.push({ title: chunk.web.title || "Recipe Source", uri: chunk.web.uri });
+      }
+    });
+
+    return {
+      recipes,
+      sources: sources.filter((v, i, a) => a.findIndex(t => t.uri === v.uri) === i)
+    };
   } catch (error) {
     console.error("Error fetching recipes:", error);
-    return [];
-  }
-};
-
-export const getNearbyRestaurants = async (lat: number, lng: number, cuisines: string[]): Promise<Restaurant[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-  
-  const cuisineStr = cuisines.join(" or ");
-  const prompt = `Find highly-rated local restaurants specializing in ${cuisineStr} near these coordinates. 
-  Prioritize small, family-owned, or immigrant-owned businesses. Provide their name, cuisine type, and a brief description.`;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        tools: [{ googleMaps: {} }],
-        toolConfig: {
-          retrievalConfig: {
-            latLng: { latitude: lat, longitude: lng }
-          }
-        }
-      }
-    });
-
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    const restaurants: Restaurant[] = [];
-
-    chunks.forEach((chunk: any) => {
-      if (chunk.maps) {
-        restaurants.push({
-          name: chunk.maps.title || "Unknown Local Spot",
-          uri: chunk.maps.uri || "#",
-          cuisine: cuisineStr,
-          summary: "Check out this local business in your community."
-        });
-      }
-    });
-
-    return restaurants.slice(0, 5);
-  } catch (error) {
-    console.error("Error fetching restaurants:", error);
-    return [];
+    return { recipes: [], sources: [] };
   }
 };

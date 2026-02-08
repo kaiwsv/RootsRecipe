@@ -1,26 +1,29 @@
 
-export interface Recipe {
-  id: string;
+export interface RecipeSource {
   title: string;
-  origin: string;
-  culturalStory: string;
-  summary: string;
-  prepTime: number;
-  ingredientsNeeded: string[];
-  link: string;
-  imagePlaceholder: string;
+  uri: string;
 }
 
-export interface Restaurant {
+export interface Recipe {
   name: string;
-  cuisine: string;
-  uri: string;
-  rating?: number;
-  summary?: string;
+  heritage: string;
+  summary: string;
+  history: string;
+  ingredients: string[];
+  appliances: string[];
+  time: string;
+  sourceUrl: string;
+  thumbnailUrl?: string;
+}
+
+export interface RecipeResult {
+  recipes: Recipe[];
+  sources: RecipeSource[];
 }
 
 export interface SearchState {
   ingredients: string[];
   appliances: string[];
+  cultures: string[];
   maxTime: number;
 }
