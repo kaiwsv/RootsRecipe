@@ -17,7 +17,9 @@ export const getCulturalRecipesWithSearch = async (
   Crucially, ensure the recipes can be prepared in under ${state.maxTime} minutes.
   ${excludeQuery}
   
-  Please return exactly ${count} recipes. For EACH recipe, use this EXACT delimiter-based format:
+  Please return exactly ${count} recipes. You MUST verify that the SOURCE_URL is currently active and reachable.
+  
+  For EACH recipe, use this EXACT delimiter-based format:
   
   [RECIPE_START]
   NAME: [Name of the dish]
@@ -28,10 +30,10 @@ export const getCulturalRecipesWithSearch = async (
   APPLIANCES_USED: [List all kitchen tools and appliances used, separated by semicolons]
   TIME_ESTIMATE: [Minutes only, as a number]
   SOURCE_URL: [The exact URL of the recipe found]
-  THUMBNAIL_URL: [Find the actual featured image URL from the article. If you cannot find a direct image link from the article, leave this blank.]
+  THUMBNAIL_URL: [Find the actual direct image link (like the og:image or the main featured image) from the specific recipe article found at SOURCE_URL. If you cannot find a direct, valid image URL for this specific article, leave this blank. DO NOT use generic placeholders or the same image for different recipes.]
   [RECIPE_END]
   
-  Be authentic. Use high-quality web grounding to find real recipes and verify the links are functional.`;
+  Be authentic and specific. We want real links to real heritage cooking.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -65,8 +67,9 @@ export const getCulturalRecipesWithSearch = async (
         if (line.startsWith('SOURCE_URL:')) recipe.sourceUrl = line.replace('SOURCE_URL:', '').trim();
         if (line.startsWith('THUMBNAIL_URL:')) {
           const val = line.replace('THUMBNAIL_URL:', '').trim();
-          if (val && val.startsWith('http')) {
-            recipe.thumbnailUrl = val;
+          if (val && (val.startsWith('http') || val.startsWith('https'))) {
+            // Clean up common issues like markdown formatting if the AI hallucinated it
+            recipe.thumbnailUrl = val.replace(/[()]/g, '');
           }
         }
       });
