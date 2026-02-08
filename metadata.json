@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Roots and Recipes",
+  "description": "A cultural heritage preservation platform that suggests significant recipes based on your available ingredients and connects you with local immigrant-owned businesses.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
